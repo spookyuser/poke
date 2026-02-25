@@ -9,7 +9,7 @@
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.93.0",
-    "@types/bun": "latest"
+    "tsx": "^4"
   },
   "peerDependencies": {
     "typescript": "^5"

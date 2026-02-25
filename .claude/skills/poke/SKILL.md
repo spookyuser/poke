@@ -1,6 +1,14 @@
+---
+name: poke
+description: Browse menus and place orders at The Poke Co (South Africa). Use when the user wants to find poke bowl locations, check hours, search menu items, build custom bowls, or place an order.
+allowed-tools: Bash(./index.ts:*), Bash(npx tsx index.ts:*)
+---
+
 # Poke Co Ordering CLI
 
 CLI for browsing menus and placing orders at The Poke Co (South Africa).
+
+Run commands with `./index.ts <command>` (requires `npx tsx` or `bun` in PATH).
 
 ## Commands
 
@@ -17,17 +25,17 @@ CLI for browsing menus and placing orders at The Poke Co (South Africa).
 
 ## Workflow
 
-1. **Find location**: `bun run index.ts locations` — pick one by name
-2. **Check hours**: `bun run index.ts hours --location "Kloof"` — confirm `is_open: true`
-3. **Search items**: `bun run index.ts search --location "Kloof" --query "salmon"` — find what to order
-4. **Place order**: pipe JSON to `bun run index.ts order --from -`
+1. **Find location**: `./index.ts locations` — pick one by name
+2. **Check hours**: `./index.ts hours --location "Kloof"` — confirm `is_open: true`
+3. **Search items**: `./index.ts search --location "Kloof" --query "salmon"` — find what to order
+4. **Place order**: pipe JSON to `./index.ts order --from -`
 
 ### BYO Workflow
 
-1. **Find location**: `bun run index.ts locations`
-2. **Check hours**: `bun run index.ts hours --location "Kloof"`
-3. **Get options**: `bun run index.ts byo-options --location "Kloof"` — shows all available bases, proteins, toppings, sauces, crunches, extras with prices for both regular and maxi
-4. **Build bowl**: `bun run index.ts byo --location Kloof --size regular --base ... --protein ... --topping ... --sauce ... --crunch ...`
+1. **Find location**: `./index.ts locations`
+2. **Check hours**: `./index.ts hours --location "Kloof"`
+3. **Get options**: `./index.ts byo-options --location "Kloof"` — shows all available bases, proteins, toppings, sauces, crunches, extras with prices for both regular and maxi
+4. **Build bowl**: `./index.ts byo --location Kloof --size regular --base ... --protein ... --topping ... --sauce ... --crunch ...`
 
 Always run `byo-options` first to see what ingredients are available before building a bowl.
 
@@ -78,7 +86,7 @@ The `byo` command provides a typed CLI for building custom bowls without needing
 
 **Example:**
 ```bash
-bun run index.ts byo --location Kloof --size regular \
+./index.ts byo --location Kloof --size regular \
   --base "sticky rice" --protein salmon \
   --topping mango --topping cucumber --topping edamame --topping radish \
   --sauce "house shoyu" --sauce "creamy togarashi" \

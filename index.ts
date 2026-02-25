@@ -1,5 +1,6 @@
-#!/usr/bin/env bun
+#!/usr/bin/env npx tsx
 
+import { readFile } from "node:fs/promises";
 import { client } from "./src/client/client.gen";
 import {
   getAllRestaurants,
@@ -36,7 +37,7 @@ function flagAll(name: string): string[] {
 }
 
 const USAGE = `
-Usage: bun run index.ts <command> [options]
+Usage: ./index.ts <command> [options]
 
 Commands:
   locations                                        List all locations (JSON)
@@ -87,20 +88,20 @@ Order JSON format:
   }
 
 Build Your Own examples:
-  bun run index.ts byo --location Kloof --size regular \\
+  ./index.ts byo --location Kloof --size regular \\
     --base "sticky rice" --protein salmon \\
     --topping mango --topping cucumber --topping edamame --topping radish \\
     --sauce "house shoyu" --sauce "creamy togarashi" \\
     --crunch "cashew nuts"
 
   # No sauce:
-  bun run index.ts byo --location Kloof --size regular \\
+  ./index.ts byo --location Kloof --size regular \\
     --base "kale" --protein chicken \\
     --topping orange --topping carrot \\
     --sauce none --crunch "crispy onions"
 
   # Output order JSON for piping to 'order':
-  bun run index.ts byo --location Kloof --size maxi \\
+  ./index.ts byo --location Kloof --size maxi \\
     --base "sticky rice" --base quinoa --protein tuna \\
     --topping mango --topping cucumber \\
     --sauce "hawaiian heat" --crunch macadamia --json
@@ -389,11 +390,15 @@ async function cmdOrder() {
 
   let raw: string;
   if (fromPath === "-") {
-    raw = await Bun.stdin.text();
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin) chunks.push(chunk);
+    raw = Buffer.concat(chunks).toString("utf-8");
   } else {
-    const file = Bun.file(fromPath);
-    if (!(await file.exists())) die(`File not found: ${fromPath}`);
-    raw = await file.text();
+    try {
+      raw = await readFile(fromPath, "utf-8");
+    } catch {
+      die(`File not found: ${fromPath}`);
+    }
   }
 
   let spec: OrderSpec;

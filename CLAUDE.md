@@ -1,17 +1,17 @@
 # Poke Co CLI
 
-Bun/TypeScript CLI for The Poke Co restaurant ordering API.
+TypeScript CLI for The Poke Co restaurant ordering API. Works with Bun or Node (via tsx).
 
 ## Commands
 
-`bun run index.ts <command>` — locations, hours, categories, search, menu, order
+`./index.ts <command>` — locations, hours, categories, search, menu, order
 
 ## Dev Setup
 
 ```bash
-bun install
-bun run index.ts locations          # no auth needed
-POKE_TOKEN=xxx bun run index.ts order --from order.json  # auth needed
+npm install          # or bun install
+./index.ts locations                          # no auth needed
+POKE_TOKEN=xxx ./index.ts order --from order.json  # auth needed
 ```
 
 ## Key Files
