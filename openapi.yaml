@@ -1,0 +1,1576 @@
+openapi: 3.0.3
+info:
+  title: 5Loyalty Hybrid Deliverect Lightspeed API
+  description: |
+    API for The Poke Co ordering system powered by 5Loyalty's hybrid Deliverect-Lightspeed integration.
+
+    ## Ordering Flow
+    1. **App Initialization** — Load config, client info, menus, restaurants, allergens
+    2. **Authentication** — Social auth (Google/Apple) via `/api-token-auth`
+    3. **User Data** — Fetch profile, vouchers, gift cards, order history, payment cards
+    4. **Place Order** — Submit order via `/order/create_yoco_order`, receive Yoco checkout redirect
+  version: 1.14.2
+  contact:
+    name: The Poke Co
+
+servers:
+  - url: https://hybrid-deliverect-lightspeed.5loyalty.com
+    description: Production
+
+security: []
+
+tags:
+  - name: App Config
+    description: App initialization and configuration endpoints
+  - name: Menu
+    description: Menu data, availability, and snooze state
+  - name: Restaurant
+    description: Restaurant locations and delivery info
+  - name: Auth
+    description: Authentication via social login
+  - name: User
+    description: User profile, vouchers, gift cards
+  - name: Orders
+    description: Order history, payment cards, and order creation
+
+paths:
+  /front_end_app_config:
+    get:
+      operationId: getFrontEndAppConfig
+      summary: Get frontend application configuration
+      description: Returns app-wide config including allowed card networks, country codes, bill pay options, and feature flags.
+      tags: [App Config]
+      parameters:
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: App configuration
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          front_end_app_config:
+                            type: object
+                            properties:
+                              allowedCardNetworks:
+                                type: array
+                                items:
+                                  type: string
+                                example:
+                                  [
+                                    "DISCOVER",
+                                    "INTERAC",
+                                    "JCB",
+                                    "MASTERCARD",
+                                    "VISA",
+                                    "AMEX",
+                                  ]
+                              billPay:
+                                type: object
+                                properties:
+                                  endpointId:
+                                    type: string
+                                  staffId:
+                                    type: string
+                              billPayOptions:
+                                type: object
+                                properties:
+                                  errorMessage:
+                                    type: string
+                                  hasSplitByCustomAmount:
+                                    type: boolean
+                                  hasSplitByItems:
+                                    type: boolean
+                                  hasSplitByTableMembers:
+                                    type: boolean
+                              country_code_data:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    text:
+                                      type: string
+                                      example: "ZA +27"
+                                    value:
+                                      type: string
+                                      example: "+27"
+
+  /client:
+    get:
+      operationId: getClient
+      summary: Get client (brand) information
+      description: Returns brand name, logos, description, and hero images.
+      tags: [App Config]
+      parameters:
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: Client info
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ClientInfo"
+
+  /public_stripe_key:
+    get:
+      operationId: getPublicStripeKey
+      summary: Get public Stripe key
+      tags: [App Config]
+      parameters:
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: Stripe public key
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          public_stripe_key:
+                            type: string
+                            example: "pk_test_SfLlfP41LhHVIG2vrA95ZrFt"
+
+  /appversion:
+    get:
+      operationId: getAppVersion
+      summary: Get minimum app version
+      tags: [App Config]
+      parameters:
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: App version
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          app_version:
+                            type: string
+                            example: "1.0.0"
+
+  /get_delivery_range_type:
+    get:
+      operationId: getDeliveryRangeType
+      summary: Get delivery range type
+      description: Returns how delivery zones are defined (e.g. polygon, radius).
+      tags: [Restaurant]
+      parameters:
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: Delivery range type
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          delivery_range_type:
+                            type: string
+                            example: "polygon"
+
+  /get_default_menu_id:
+    get:
+      operationId: getDefaultMenuId
+      summary: Get default menu ID
+      tags: [Menu]
+      parameters:
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: Default menu ID
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          default_menu_id:
+                            type: string
+                            example: "5Loyalty - The Poke Co"
+
+  /get_default_menu/{menuId}:
+    get:
+      operationId: getDefaultMenu
+      summary: Get full default menu with all items and deal groups
+      description: Returns the complete menu structure with entry groups, items, deal configurations, pricing, images, allergens, and availability windows.
+      tags: [Menu]
+      parameters:
+        - name: menuId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "5Loyalty - The Poke Co"
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: Full menu data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Menu"
+
+  /ikentoo_menu/get_snooze_data:
+    get:
+      operationId: getSnoozeData
+      summary: Get menu snooze and availability data
+      description: Returns per-location data on snoozed/disabled SKUs, order acceptance status, collection/delivery enablement, time slots, and kitchen configuration.
+      tags: [Menu]
+      parameters:
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: Snooze data per location
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SnoozeData"
+
+  /restaurants/all:
+    get:
+      operationId: getAllRestaurants
+      summary: Get all restaurant locations
+      description: Returns all restaurant locations with addresses, coordinates, opening times, order capabilities, delivery zones, and kitchen status.
+      tags: [Restaurant]
+      parameters:
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: Restaurant list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Restaurant"
+
+  /allergens:
+    get:
+      operationId: getAllergens
+      summary: Get allergen list
+      description: Returns all available allergen codes with localized labels.
+      tags: [Menu]
+      parameters:
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: Allergens
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Allergen"
+
+  /ikentoo_menus/location/{locationId}:
+    get:
+      operationId: getMenusForLocation
+      summary: Get available menus for a location
+      description: Returns list of menu names/IDs available at a specific business location.
+      tags: [Menu]
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "613f5c8957e9945b0801324c"
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: Menus for location
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            menuName:
+                              type: string
+                            ikentooMenuId:
+                              type: string
+
+  /ikentoo_menu/{menuId}/location/{locationId}:
+    get:
+      operationId: getMenuForLocation
+      summary: Get full menu for a specific location
+      description: Returns the complete menu for a location including location-specific channel link ID and availability. Same structure as default menu but scoped to a location.
+      tags: [Menu]
+      parameters:
+        - name: menuId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "5Loyalty - The Poke Co"
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "613f5c8957e9945b0801324c"
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: Location-specific menu
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Menu"
+
+  /api-token-auth:
+    post:
+      operationId: authenticate
+      summary: Authenticate via social login
+      description: |
+        Authenticates a user via Apple or Google social login. Returns a JWT token and user profile on success,
+        or a `try_register` flag if the account doesn't exist yet.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthRequest"
+      responses:
+        "200":
+          description: Authentication result — either a token + profile, or a registration prompt
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/AuthSuccessResponse"
+                  - $ref: "#/components/schemas/AuthRegisterResponse"
+
+  /me:
+    get:
+      operationId: getProfile
+      summary: Get current user profile
+      description: Returns the authenticated user's full profile including loyalty balance, stamp cards, addresses, and subscription status.
+      tags: [User]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  email:
+                    type: string
+                  profile:
+                    $ref: "#/components/schemas/UserProfile"
+                  active_subscription:
+                    type: object
+
+  /me/orders/{page}:
+    get:
+      operationId: getOrderHistory
+      summary: Get user order history
+      description: Returns paginated list of past orders with full item details.
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: Order history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+
+  /me/vouchers:
+    get:
+      operationId: getVouchers
+      summary: Get user vouchers
+      description: Returns available and redeemed vouchers/rewards for the user.
+      tags: [User]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: Voucher list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Voucher"
+
+  /me/gift_cards:
+    get:
+      operationId: getGiftCards
+      summary: Get user gift cards
+      description: Returns the user's gift card balances and profile info.
+      tags: [User]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Gift cards and profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  email:
+                    type: string
+                  profile:
+                    $ref: "#/components/schemas/UserProfile"
+
+  /news:
+    get:
+      operationId: getNews
+      summary: Get news feed
+      tags: [App Config]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: News items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /orders/list_payment_cards:
+    post:
+      operationId: listPaymentCards
+      summary: List saved payment cards
+      description: Returns saved payment cards for the authenticated user.
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                client_id:
+                  type: integer
+                  nullable: true
+                version:
+                  type: string
+      responses:
+        "200":
+          description: Payment cards
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          description: Saved payment card details
+
+  /order/create_yoco_order:
+    post:
+      operationId: createYocoOrder
+      summary: Create an order with Yoco payment
+      description: |
+        Submits a complete order with items, customizations, delivery/collection details, and
+        payment info. Returns the created order and a Yoco checkout object with a redirect URL
+        for the customer to complete payment.
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateYocoOrderRequest"
+      responses:
+        "200":
+          description: Order created with Yoco checkout
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          order:
+                            $ref: "#/components/schemas/Order"
+                          client_secret:
+                            type: string
+                            nullable: true
+                          yoco:
+                            $ref: "#/components/schemas/YocoCheckout"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "JWT token obtained from /api-token-auth. Format: `JWT <token>`"
+
+  parameters:
+    Version:
+      name: version
+      in: query
+      required: false
+      schema:
+        type: string
+        default: "1.14.2"
+      description: Client app version
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        status:
+          type: integer
+          example: 200
+
+    ClientInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "thepokeco"
+        favicon_image:
+          type: string
+          format: uri
+        logo_image:
+          type: string
+          format: uri
+        logo_image_light:
+          type: string
+          format: uri
+        test_user_id:
+          type: string
+          nullable: true
+        buisiness_description:
+          type: string
+        gift_voucher_description:
+          type: string
+        buisiness_name:
+          type: string
+          example: "The Poke Co."
+        hero_image:
+          type: string
+          format: uri
+        main_image:
+          type: string
+          format: uri
+
+    Menu:
+      type: object
+      properties:
+        menuName:
+          type: string
+        menu_id:
+          type: string
+        ikentooMenuId:
+          type: string
+        channelLinkId:
+          type: string
+          description: Deliverect channel link ID
+        deliverect_availability:
+          type: array
+          items:
+            type: object
+            properties:
+              dayOfWeek:
+                type: integer
+                minimum: 1
+                maximum: 7
+              startTime:
+                type: string
+                example: "10:30"
+              endTime:
+                type: string
+                example: "20:00"
+        menuEntryGroups:
+          type: array
+          items:
+            $ref: "#/components/schemas/MenuEntryGroup"
+
+    MenuEntryGroup:
+      type: object
+      properties:
+        "@type":
+          type: string
+          enum: [group]
+        name:
+          type: string
+          example: "The Ultimate Combo Deals"
+        color:
+          type: string
+        menuEntry:
+          type: array
+          items:
+            $ref: "#/components/schemas/MenuItem"
+
+    MenuItem:
+      type: object
+      description: A menu item or deal. Deals contain `menuDealGroups` for customization.
+      properties:
+        "@type":
+          type: string
+          enum: [menuItem, menuDeal]
+        productName:
+          type: string
+          example: "Build Your Own - Regular"
+        description:
+          type: string
+        color:
+          type: string
+        productPrice:
+          type: string
+          description: Price as string in ZAR
+          example: "83.00"
+        sku:
+          type: string
+        productionInstructionList:
+          type: array
+          items:
+            type: string
+        type:
+          type: string
+          enum: [menuItem, menuDeal]
+        itemRichData:
+          $ref: "#/components/schemas/ItemRichData"
+        deliveryTax:
+          type: integer
+          description: Tax rate in millipercent (15000 = 15%)
+        takeawayTax:
+          type: integer
+        eatInTax:
+          type: integer
+        taxIncludedInPrice:
+          type: boolean
+        defaultTaxPercentage:
+          type: string
+          example: "15.00"
+        defaultTaxAmount:
+          type: string
+          example: "10.83"
+        menuDealGroups:
+          type: array
+          description: Only present for menuDeal type items
+          items:
+            $ref: "#/components/schemas/MenuDealGroup"
+
+    ItemRichData:
+      type: object
+      properties:
+        squareImageUrl:
+          type: string
+          format: uri
+          nullable: true
+        rawImageUrl:
+          type: string
+          format: uri
+          nullable: true
+        texts:
+          type: array
+          items:
+            type: object
+            properties:
+              locale:
+                type: string
+                example: "en"
+              friendlyDisplayName:
+                type: string
+              description:
+                type: string
+        allergenCodes:
+          type: array
+          items:
+            type: string
+
+    MenuDealGroup:
+      type: object
+      description: A customization group within a deal (e.g. "Choose Your Base", "Pick a Protein")
+      properties:
+        description:
+          type: string
+          example: "Choose Your Base (R)"
+        mustSelectAnItem:
+          type: boolean
+        multiSelectionPermitted:
+          type: boolean
+        isUpsell:
+          type: boolean
+        max:
+          type: integer
+          description: Maximum selections allowed
+        min:
+          type: integer
+          description: Minimum selections required
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MenuItem"
+
+    SnoozeData:
+      type: object
+      properties:
+        business_location_id:
+          type: string
+        data:
+          type: object
+          properties:
+            is_accepting_orders_currently:
+              type: boolean
+            delivery_enabled:
+              type: boolean
+            collection_enabled:
+              type: boolean
+            table_enabled:
+              type: boolean
+            pick_up_at_counter_enabled:
+              type: boolean
+            browse_menu_enabled:
+              type: boolean
+            snoozed_skus:
+              type: array
+              items:
+                type: string
+            disabled_skus:
+              type: array
+              items:
+                type: string
+            snoozed_times:
+              type: object
+              properties:
+                charter-delivery:
+                  type: array
+                  items:
+                    type: string
+                collection:
+                  type: array
+                  items:
+                    type: string
+            disabled_times:
+              type: object
+              properties:
+                charter-delivery:
+                  type: array
+                  items:
+                    type: string
+                collection:
+                  type: array
+                  items:
+                    type: string
+            collection_time:
+              type: integer
+              description: Estimated collection time in minutes
+            delivery_time:
+              type: integer
+            print_time_collection:
+              type: integer
+            print_time_delivery:
+              type: integer
+            interval_time:
+              type: integer
+            interval_time_delivery:
+              type: integer
+            can_scheduled_collection_order:
+              type: boolean
+            can_scheduled_delivery_order:
+              type: boolean
+            autosnooze_limit:
+              type: string
+              description: JSON string of per-channel order limits
+            timeslot_order_count:
+              type: object
+            timeslot_delivery_order_count:
+              type: object
+            open_close_times:
+              type: object
+              properties:
+                collection_open:
+                  type: string
+                collection_close:
+                  type: string
+                delivery_open:
+                  type: string
+                delivery_close:
+                  type: string
+
+    Restaurant:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          example: "Kloof St - Gardens, Cape Town"
+        description:
+          type: string
+        address:
+          type: string
+        town:
+          type: string
+        county:
+          type: string
+        postcode:
+          type: string
+        email:
+          type: string
+        order_confirmation_email_json:
+          type: string
+        telephone:
+          type: string
+        website:
+          type: string
+        facebook:
+          type: string
+        twitter:
+          type: string
+        position:
+          type: string
+          description: "Comma-separated lat,lng"
+          example: "-33.929,18.410"
+        opening_times:
+          type: string
+        business_location_id:
+          type: string
+        menu_id:
+          type: string
+        unavailable_slots:
+          type: array
+          items:
+            type: string
+        available_tables:
+          type: array
+          items:
+            type: object
+        json_opening_times:
+          type: array
+          items:
+            type: object
+        json_time_selector:
+          type: array
+          items:
+            type: object
+        show_discount:
+          type: boolean
+        image:
+          type: string
+          nullable: true
+        coming_soon:
+          type: boolean
+        can_table_order:
+          type: boolean
+        can_delivery_order:
+          type: boolean
+        can_charter_delivery_order:
+          type: boolean
+        can_collection_order:
+          type: boolean
+        can_scheduled_collection_order:
+          type: boolean
+        can_scheduled_delivery_order:
+          type: boolean
+        can_pick_up_at_counter:
+          type: boolean
+        is_pickup:
+          type: boolean
+        is_accepting_orders_currently:
+          type: boolean
+        snoozed_skus:
+          type: array
+          items:
+            type: string
+        disabled_skus:
+          type: array
+          items:
+            type: string
+        delivery_zone_config:
+          type: array
+          items:
+            type: object
+        pickup_points:
+          type: array
+          items:
+            type: object
+        kitchen_status:
+          type: object
+          properties:
+            text:
+              type: string
+              example: "Normal Service"
+            status:
+              type: integer
+        is_published:
+          type: boolean
+
+    Allergen:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "gluten"
+        translations:
+          type: array
+          items:
+            type: object
+            properties:
+              locale:
+                type: string
+              text:
+                type: string
+
+    AuthRequest:
+      type: object
+      required:
+        - username
+        - socialAuth
+      properties:
+        username:
+          type: string
+          description: Empty string for social auth
+        socialAuth:
+          type: object
+          required:
+            - tokenId
+            - authType
+          properties:
+            tokenId:
+              type: string
+              description: JWT identity token from the social provider
+            code:
+              type: string
+              description: Authorization code (Apple only)
+            authType:
+              type: string
+              enum: [Apple, Google]
+        client_id:
+          type: integer
+          nullable: true
+        version:
+          type: string
+
+    AuthSuccessResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT access token for authenticated requests
+        profile:
+          $ref: "#/components/schemas/UserProfile"
+
+    AuthRegisterResponse:
+      type: object
+      properties:
+        try_register:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "You don't have account try register!"
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        client:
+          type: integer
+        user_token:
+          type: string
+        email:
+          type: string
+        mobile:
+          type: string
+        mobile_code:
+          type: string
+        mobile_value:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        birthday:
+          type: string
+          nullable: true
+        qr_code:
+          type: string
+          format: uri
+        available_balance:
+          type: integer
+          description: Loyalty points available
+        milestone_balance:
+          type: integer
+        total_earned_to_date:
+          type: integer
+        card_last_four:
+          type: string
+          nullable: true
+        card_expiry:
+          type: string
+          nullable: true
+        card_type:
+          type: string
+          nullable: true
+        promotion_consent:
+          type: boolean
+        profile_image_url:
+          type: string
+          nullable: true
+        is_subscribed:
+          type: boolean
+        accepted_terms_and_conditions:
+          type: boolean
+        locale:
+          type: string
+        email_verified:
+          type: string
+        is_verification_pop_up_shown:
+          type: boolean
+        judo_pay_cards:
+          type: array
+          items:
+            type: object
+        address_list:
+          type: array
+          items:
+            type: object
+        charter_delivery_address_list:
+          type: array
+          items:
+            type: object
+        pickup_points_list:
+          type: array
+          items:
+            type: object
+        scan_is_payment:
+          type: boolean
+        scan_is_loyalty:
+          type: boolean
+        is_guest:
+          type: boolean
+        active_subscription:
+          type: object
+        stamp_cards_json:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              stamp_balance:
+                type: integer
+        created_at:
+          type: string
+          format: date-time
+        gender:
+          type: string
+          nullable: true
+        dietary_requirements:
+          type: string
+        dietary_requirements_list:
+          type: array
+          items:
+            type: string
+        is_verified:
+          type: boolean
+        group_tags:
+          type: array
+          items:
+            type: string
+
+    Voucher:
+      type: object
+      properties:
+        id:
+          type: integer
+        reward:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+              example: "Buy 1 Get 1 Free"
+            discount_id:
+              type: string
+            description:
+              type: string
+            show_in_app:
+              type: boolean
+            small_print:
+              type: string
+            expiry_date:
+              type: string
+              format: date
+            cost:
+              type: integer
+              description: Cost in loyalty points
+            is_manual_discount_json:
+              type: boolean
+            discount_json:
+              type: object
+              properties:
+                reward_type:
+                  type: integer
+            image:
+              type: string
+              format: uri
+            group:
+              type: string
+            is_multi_use:
+              type: boolean
+        is_locked:
+          type: boolean
+        unlock_time:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        is_expired:
+          type: boolean
+        redeemed:
+          type: boolean
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+            email:
+              type: string
+        expiry_date:
+          type: string
+          format: date
+        voucher_type:
+          type: string
+          enum: [voucher]
+        is_unlock_reward:
+          type: boolean
+        is_milestone:
+          type: boolean
+        additional_config:
+          type: object
+
+    CreateYocoOrderRequest:
+      type: object
+      required:
+        - items
+        - payment_token
+        - business_location_id
+        - order_type
+        - total
+        - mobile
+        - currency
+      properties:
+        items:
+          type: array
+          description: Cart items, each wrapping a MenuItem/MenuDeal with full customization data
+          items:
+            type: object
+            properties:
+              item:
+                $ref: "#/components/schemas/MenuItem"
+              quantity:
+                type: integer
+                default: 1
+              special_instructions:
+                type: string
+        applicable_vouchers:
+          type: array
+          items:
+            type: object
+        applied_gift_cards:
+          type: array
+          items:
+            type: object
+        payment_token:
+          type: string
+          example: "yoco"
+        pay_on_collection:
+          type: boolean
+        discount_applied:
+          type: integer
+        business_location_id:
+          type: string
+          example: "613f5c8957e9945b0801324c"
+        collection_time:
+          type: string
+          description: "'asap' or ISO datetime"
+          example: "asap"
+        mobile:
+          type: string
+          example: "+27718365958"
+        mobile_code:
+          type: string
+          example: "+27"
+        mobile_value:
+          type: string
+          example: "718365958"
+        currency:
+          type: string
+          example: "zar"
+        order_type:
+          type: string
+          enum: [collection, delivery, table]
+          example: "collection"
+        delivery_option:
+          type: object
+          properties:
+            description:
+              type: string
+            id:
+              type: string
+            isDisabled:
+              type: boolean
+            isRemoved:
+              type: boolean
+            isHiddenFromSidebar:
+              type: boolean
+            label:
+              type: string
+            route:
+              type: string
+        delivery_address:
+          type: object
+          nullable: true
+        pick_up_point:
+          type: object
+          nullable: true
+        is_gift:
+          type: boolean
+        is_postal_gift:
+          type: boolean
+        delivery_price:
+          type: integer
+        _total:
+          type: number
+          description: Total in rands (human-readable)
+          example: 104
+        total:
+          type: integer
+          description: Total in cents
+          example: 10400
+        min_order:
+          type: string
+        delivery_min_order:
+          type: integer
+        allergen_data:
+          type: array
+          items:
+            type: object
+        cutoffTime:
+          type: integer
+          description: Unix timestamp in milliseconds
+        table_name:
+          type: string
+          nullable: true
+        service_charge_percentage:
+          type: number
+        service_charge_value:
+          type: integer
+        is_asap:
+          type: boolean
+        menu_id:
+          type: string
+        already_paid:
+          type: integer
+        uuid:
+          type: string
+          example: "guest_1772023190823"
+        custom_field:
+          type: object
+          properties:
+            field_value:
+              type: string
+            field_name:
+              type: string
+        additional_data:
+          type: object
+          properties:
+            tax_breakdown:
+              type: array
+              items:
+                type: object
+            gift_voucher_data:
+              type: object
+        version:
+          type: string
+        client_id:
+          type: integer
+          nullable: true
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        is_parent_order:
+          type: boolean
+        collection_code:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              item:
+                $ref: "#/components/schemas/MenuItem"
+              quantity:
+                type: integer
+              special_instructions:
+                type: string
+        collection_time:
+          type: string
+          format: date-time
+        restaurant_name:
+          type: string
+        table_name:
+          type: string
+        status:
+          type: string
+          enum: [new, accepted, ready, completed, cancelled]
+        discount:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        payment_token:
+          type: string
+        has_multi_basket:
+          type: boolean
+        multi_basket_items:
+          type: array
+          items:
+            type: object
+        eat_in:
+          type: boolean
+        take_away:
+          type: boolean
+        delivery:
+          type: boolean
+        pick_up_point:
+          type: boolean
+        delivery_price:
+          type: number
+        delivery_address:
+          type: object
+        mobile:
+          type: string
+        amount_paid:
+          type: number
+        process_message:
+          type: string
+          nullable: true
+        restaurant_id:
+          type: integer
+        cutoff_time:
+          type: string
+          format: date-time
+        applied_vouchers:
+          type: array
+          items:
+            type: object
+        is_asap:
+          type: boolean
+        payment_info:
+          type: object
+        service_charge_percentage:
+          type: number
+        service_charge_value:
+          type: number
+        subscription_discount:
+          type: number
+        subscription_price:
+          type: number
+        process_fee_value:
+          type: number
+        is_gift:
+          type: boolean
+        scheduled_collection:
+          type: boolean
+        total_taxes:
+          type: number
+        kiosk_take_away:
+          type: boolean
+        kiosk_eat_in:
+          type: boolean
+        pick_up_at_counter:
+          type: boolean
+        show_banner:
+          type: boolean
+        scheduled_delivery:
+          type: boolean
+        uuid:
+          type: string
+        additional_data:
+          type: object
+        events:
+          type: array
+          items:
+            type: object
+
+    YocoCheckout:
+      type: object
+      description: Yoco payment checkout session. Redirect the user to `redirectUrl` to complete payment.
+      properties:
+        id:
+          type: string
+          example: "ch_4EX8rqA2nyzhwaJCz9OiPwEN"
+        redirectUrl:
+          type: string
+          format: uri
+          description: URL to redirect the user to for payment
+          example: "https://c.yoco.com/checkout/ch_4EX8rqA2nyzhwaJCz9OiPwEN"
+        status:
+          type: string
+          enum: [created, pending, completed, failed]
+          example: "created"
+        amount:
+          type: integer
+          description: Amount in cents
+          example: 10400
+        currency:
+          type: string
+          example: "ZAR"
+        paymentId:
+          type: string
+          nullable: true
+        successUrl:
+          type: string
+          format: uri
+        cancelUrl:
+          type: string
+          format: uri
+        failureUrl:
+          type: string
+          format: uri
+        metadata:
+          type: object
+          properties:
+            order_id:
+              type: integer
+            client_id:
+              type: integer
+            checkoutId:
+              type: string
+            paymentFacilitator:
+              type: string
+            domain:
+              type: string
+        merchantId:
+          type: string
+        totalDiscount:
+          type: number
+          nullable: true
+        totalTaxAmount:
+          type: number
+          nullable: true
+        subtotalAmount:
+          type: number
+          nullable: true
+        lineItems:
+          type: array
+          nullable: true
+          items:
+            type: object
+        processingMode:
+          type: string
+          enum: [live, test]

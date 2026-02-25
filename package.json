@@ -1,0 +1,21 @@
+{
+  "name": "poke",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "poke": "bun run index.ts",
+    "generate": "bunx @hey-api/openapi-ts -i ./openapi.yaml -o ./src/client -c @hey-api/client-fetch",
+    "build:skill": "bun build index.ts --target=node --outfile=skills/poke-ordering/scripts/poke-cli.js"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "^0.93.0",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@hey-api/client-fetch": "^0.13.1"
+  }
+}
